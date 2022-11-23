@@ -1,4 +1,4 @@
-const db = require("../oldconfig");
+const db = require("../dbconfig");
 const { isEmail, isEmpty } = require("validator");
 const jwt = require("jsonwebtoken");
 const bcrypt = require("bcrypt");
@@ -38,7 +38,7 @@ const createToken = (obj) => {
   });
 };
 module.exports.signup = (req, res) => {
-  const { name, user, email, password, wallet } = req.body;
+  const { name, user, email, password, num } = req.body;
   console.log("req body", req.body);
   const msg = checkUserDetails({ name, email, password });
   if (msg.name !== "" || msg.email !== "" || msg.password !== "") {
@@ -55,7 +55,6 @@ module.exports.signup = (req, res) => {
             username: user,
             name,
             pwd: hash,
-            wallet,
             joined: new Date(),
             login: new Date(),
             accbal: 0,
@@ -64,8 +63,12 @@ module.exports.signup = (req, res) => {
             earnings: 0,
             pdgwdl: 0,
             admin: 0,
-            totalwdl: 0,
             lastwdl: 0,
+            active: 0,
+            pend: 0,
+            num: "",
+            ref: 0,
+            aref: 0,
           })
           .then((user) => {
             console.log("user", user);
@@ -98,6 +101,7 @@ module.exports.login = (req, res) => {
     res.status(400).json({ msg });
   } else {
     //look for user with email in db
+
     db.select("*")
       .from("users")
       .where({ email })
@@ -113,6 +117,14 @@ module.exports.login = (req, res) => {
               email: user[0].email,
               admin: user[0].admin,
             });
+
+            db.select("*")
+              .from("users")
+              .where({ email })
+              .update({
+                login: new Date(),
+              })
+              .then((res) => console.log(res));
             // res.cookie('jwt',token, {httpOnly: true, maxAge: maxAge * 1000})
             res.status(201).json({ token, email, admin: user[0].admin });
             //create a jwt and send that as response in a cookie
@@ -122,8 +134,7 @@ module.exports.login = (req, res) => {
         }
       })
       .catch((err) => {
-        console.log(err);
-        // res.status(400).json({ error: "Cannot login at this time" });
+        res.status(400).json({ error: "Cannot login at this time" });
       });
   }
 };
@@ -134,14 +145,14 @@ module.exports.logout = (req, res) => {
 };
 
 module.exports.withdraw = async (req, res) => {
-  const { email, address, withdrwal } = req.body;
+  const { email, pdgwdl, add } = req.body;
 
   if (checkEmail(email)) {
     try {
       //returns 1 if done
       const isDone = await db("users")
         .where({ email })
-        .update({ address, withdrwal });
+        .update({ pdgwdl, wallet: add });
       res.json(isDone);
     } catch (err) {
       res.json({ err: "try again later?" });
@@ -151,18 +162,53 @@ module.exports.withdraw = async (req, res) => {
   }
 };
 
+module.exports.deposit = async (req, res) => {
+  const { email, depos } = req.body;
+
+  if (checkEmail(email)) {
+    try {
+      //returns 1 if done
+      const isDone = await db("users").where({ email }).update({ depos });
+      res.json(isDone);
+    } catch (err) {
+      res.json({ err: "try again later?" });
+    }
+  } else {
+    res.json({ err: "invalid email" });
+  }
+};
+
+module.exports.purchase = async (req, res) => {
+  const { email, purchase } = req.body;
+  console.log("email, pur", email, purchase);
+  try {
+    //returns 1 if done
+    const user = await db("users").where({ email });
+
+    const active = parseInt(user[0].active) + parseInt(purchase);
+    const accbal = parseInt(user[0].accbal) - parseInt(purchase);
+    console.log("here", active, accbal);
+    const isDone = await db("users")
+      .where({ email })
+      .update({ active, accbal });
+    res.json(isDone);
+  } catch (err) {
+    res.json({ err });
+  }
+};
+
 module.exports.profile = async (req, res) => {
-  const { email, name, phone, location } = req.body;
+  const { email, name, wallet } = req.body;
 
   if (checkEmail(email)) {
     try {
       //returns 1 if done
       const isDone = await db("users")
         .where({ email })
-        .update({ name, phone, location });
+        .update({ name, wallet });
       res.json(isDone);
     } catch (err) {
-      res.json({ err: "try again later?" });
+      res.json({ err });
     }
   } else {
     res.json({ err: "invalid email" });

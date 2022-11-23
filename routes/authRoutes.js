@@ -10,6 +10,10 @@ router.post("/user", authController.user);
 
 router.post("/withdraw", authController.withdraw);
 
+router.post("/deposit", authController.deposit);
+
+router.post("/purchase", authController.purchase);
+
 router.post("/profile", authController.profile);
 
 router.get("/logout", authController.logout);
